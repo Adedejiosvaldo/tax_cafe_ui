@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Footer() {
   return (
@@ -6,11 +7,13 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <div className="text-primary size-9">
-              <svg fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11 19V9H7V19H11ZM12 19V9H17V11H13V13H16V15H13V19H12Z M4 21V5Q4 4.175 4.588 3.587Q5.175 3 6 3H18Q18.825 3 19.413 3.587Q20 4.175 20 5V16H18V5H6V21H4Z"></path>
-              </svg>
-            </div>
+            <Image
+              src="/tclogo.png"
+              alt="TaxCafe Logo"
+              width={36}
+              height={36}
+              className="size-9"
+            />
             <h2 className="text-gray-900 text-xl font-bold">TaxCafe</h2>
           </div>
           <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2">
