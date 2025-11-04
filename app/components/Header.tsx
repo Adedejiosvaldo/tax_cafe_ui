@@ -8,14 +8,14 @@ export default function Header() {
         <div className="flex h-20 items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+            className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
           >
             <Image
               src="/tclogo.png"
               alt="TaxCafe Logo"
               width={100}
               height={100}
-              //   className="size-12"
+              className="border-0 outline-none"
             />
             <h2 className="text-gray-900 text-xl font-bold">TaxCafe Nigeria</h2>
           </Link>

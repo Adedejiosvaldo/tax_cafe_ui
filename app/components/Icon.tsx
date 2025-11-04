@@ -25,9 +25,15 @@ export default function Icon({ name, className = "", size = 24 }: IconProps) {
     'bolt': 'Zap',
     'verified': 'BadgeCheck',
     'lock': 'Lock',
+    'add_comment': 'MessageSquarePlus',
+    'history': 'History',
+    'settings': 'Settings',
+    'help_outline': 'HelpCircle',
+    'delete_outline': 'Trash2',
+    'close': 'X',
   };
 
   const IconComponent = LucideIcons[iconMap[name] || 'Circle'] as React.ComponentType<{ size?: number; className?: string }>;
-  
+
   return <IconComponent size={size} className={className} />;
 }

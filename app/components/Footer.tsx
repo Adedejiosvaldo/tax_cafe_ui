@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import Image from 'next/image';
+import Link from "next/link";
+import Image from "next/image";
 
 export default function Footer() {
   return (
@@ -10,36 +10,59 @@ export default function Footer() {
             <Image
               src="/tclogo.png"
               alt="TaxCafe Logo"
-              width={36}
-              height={36}
-              className="size-9"
+              width={50}
+              height={50}
+              //   className="size-9"
             />
             <h2 className="text-gray-900 text-xl font-bold">TaxCafe</h2>
           </div>
           <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-            <Link href="/" className="text-sm text-text-light-body hover:text-primary transition-colors">
+            <Link
+              href="/"
+              className="text-sm text-text-light-body hover:text-primary transition-colors"
+            >
               Home
             </Link>
-            <Link href="/#features" className="text-sm text-text-light-body hover:text-primary transition-colors">
+            <Link
+              href="/#features"
+              className="text-sm text-text-light-body hover:text-primary transition-colors"
+            >
               Features
             </Link>
-            <Link href="/#pricing" className="text-sm text-text-light-body hover:text-primary transition-colors">
+            <Link
+              href="/#pricing"
+              className="text-sm text-text-light-body hover:text-primary transition-colors"
+            >
               Pricing
             </Link>
-            <Link href="/taxai" className="text-sm text-text-light-body hover:text-primary transition-colors">
+            <Link
+              href="/taxai"
+              className="text-sm text-text-light-body hover:text-primary transition-colors"
+            >
               TaxAI
             </Link>
-            <Link href="#" className="text-sm text-text-light-body hover:text-primary transition-colors">
+            <Link
+              href="#"
+              className="text-sm text-text-light-body hover:text-primary transition-colors"
+            >
               Contact
             </Link>
-            <Link href="#" className="text-sm text-text-light-body hover:text-primary transition-colors">
+            <Link
+              href="#"
+              className="text-sm text-text-light-body hover:text-primary transition-colors"
+            >
               Terms of Service
             </Link>
-            <Link href="#" className="text-sm text-text-light-body hover:text-primary transition-colors">
+            <Link
+              href="#"
+              className="text-sm text-text-light-body hover:text-primary transition-colors"
+            >
               Privacy Policy
             </Link>
           </nav>
-          <p className="text-sm text-text-light-body mt-6 md:mt-0">© 2024 TaxCafe. All rights reserved.</p>
+          <p className="text-sm text-text-light-body mt-6 md:mt-0">
+            © 2025 TaxCafe. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>
