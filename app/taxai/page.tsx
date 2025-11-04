@@ -65,11 +65,14 @@ export default function TaxAI() {
       process.env.NEXT_API_URL ||
       "/api/chat";
 
-    // Build payload with message history
-    const payloadMessages = [...messages, userMessage].map((m) => ({
-      role: m.role,
-      content: typeof m.content === "string" ? m.content : "",
-    }));
+    // Get agent_id from URL query params (like agent-ui does) or environment
+    // If not provided, the API will try to auto-detect or use default
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentId =
+      urlParams.get("agent") ||
+      urlParams.get("agent_id") ||
+      process.env.NEXT_PUBLIC_AGENT_ID ||
+      null;
 
     // Add typing placeholder
     const typingId = `t-${Date.now()}`;
@@ -89,7 +92,7 @@ export default function TaxAI() {
       setTimeout(() => {
         setMessages((current) => {
           const withoutTyping = current.filter((x) => x.id !== typingId);
-          const reply = `I understand you're asking about: "${userInput}". This is a simulated response. In production, this would connect to a real AI service to provide accurate Nigerian tax guidance based on the Nigeria Tax Administration Act, 2025.`;
+          const reply = `I understand you're asking about: "${userInput}". This is a simulated response. Please configure AGENT_OS_URL and AGENT_ID environment variables to connect to the actual TaxCafe AI service.`;
           return [
             ...withoutTyping,
             {
@@ -103,17 +106,88 @@ export default function TaxAI() {
       }, 1000);
     };
 
-    // Attempt to call API
+    // JSON streaming parser (from agent-ui pattern)
+    interface StreamChunk {
+      event?: string;
+      content?: string;
+      [key: string]: unknown;
+    }
+
+    const parseBuffer = (
+      buffer: string,
+      onChunk: (chunk: StreamChunk) => void
+    ): string => {
+      let currentIndex = 0;
+      let jsonStartIndex = buffer.indexOf("{", currentIndex);
+
+      while (jsonStartIndex !== -1 && jsonStartIndex < buffer.length) {
+        let braceCount = 0;
+        let inString = false;
+        let escapeNext = false;
+        let jsonEndIndex = -1;
+        let i = jsonStartIndex;
+
+        for (; i < buffer.length; i++) {
+          const char = buffer[i];
+
+          if (inString) {
+            if (escapeNext) {
+              escapeNext = false;
+            } else if (char === "\\") {
+              escapeNext = true;
+            } else if (char === '"') {
+              inString = false;
+            }
+          } else {
+            if (char === '"') {
+              inString = true;
+            } else if (char === "{") {
+              braceCount++;
+            } else if (char === "}") {
+              braceCount--;
+              if (braceCount === 0) {
+                jsonEndIndex = i;
+                break;
+              }
+            }
+          }
+        }
+
+        if (jsonEndIndex !== -1) {
+          const jsonString = buffer.slice(jsonStartIndex, jsonEndIndex + 1);
+          try {
+            const parsed = JSON.parse(jsonString);
+            onChunk(parsed);
+          } catch {
+            jsonStartIndex = buffer.indexOf("{", jsonStartIndex + 1);
+            continue;
+          }
+
+          currentIndex = jsonEndIndex + 1;
+          buffer = buffer.slice(currentIndex).trim();
+          currentIndex = 0;
+          jsonStartIndex = buffer.indexOf("{", currentIndex);
+        } else {
+          break;
+        }
+      }
+
+      return buffer;
+    };
+
+    // Attempt to call API with FormData (matching agent-ui pattern)
     try {
+      const formData = new FormData();
+      formData.append("message", userInput);
+      formData.append("stream", "true");
+      // Only append agent_id if we have it (API will auto-detect if not provided)
+      if (agentId) {
+        formData.append("agent_id", agentId);
+      }
+
       const res = await fetch(API_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          question: userInput,
-          messages: payloadMessages,
-        }),
+        body: formData,
       });
 
       if (!res.ok || !res.body) {
@@ -123,66 +197,77 @@ export default function TaxAI() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let done = false;
-      let accumulated = "";
+      let buffer = "";
+      let accumulatedContent = "";
 
-      const contentType = (res.headers.get("content-type") || "").toLowerCase();
-      const isSSE = contentType.includes("text/event-stream");
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          if (isSSE) {
-            // SSE parsing: extract lines starting with `data:`
-            const lines = chunk.split(/\r?\n/);
-            for (const line of lines) {
-              if (!line) continue;
-              if (line.startsWith("data:")) {
-                const payload = line.replace(/^data:\s*/, "");
-                if (payload === "[DONE]") {
-                  done = true;
-                } else {
-                  accumulated += payload;
-                }
-              } else {
-                accumulated += line;
-              }
+      const processStream = async (): Promise<void> => {
+        const { done, value } = await reader.read();
+        if (done) {
+          // Process any final data in the buffer
+          parseBuffer(buffer, (chunk) => {
+            if (
+              chunk.event === "RunContent" &&
+              typeof chunk.content === "string"
+            ) {
+              accumulatedContent = chunk.content;
             }
-          } else {
-            accumulated += chunk;
-          }
-
-          // Update typing placeholder with accumulated text
-          setMessages((current) =>
-            current.map((m) =>
-              m.id === typingId
-                ? {
-                    ...m,
-                    content: accumulated,
-                    typing: accumulated.length === 0,
-                  }
-                : m
-            )
-          );
+          });
+          setIsLoading(false);
+          return;
         }
 
-        done = done || readerDone;
-      }
+        buffer += decoder.decode(value, { stream: true });
 
-      // Replace typing placeholder with final message
-      setMessages((current) => {
-        const withoutTyping = current.filter((x) => x.id !== typingId);
-        return [
-          ...withoutTyping,
-          {
-            role: "assistant",
-            content: accumulated || "(no response)",
-            timestamp: Date.now(),
-          },
-        ];
-      });
-      setIsLoading(false);
+        // Parse complete JSON objects from buffer
+        buffer = parseBuffer(buffer, (chunk) => {
+          // Handle different event types (matching agent-ui pattern)
+          if (
+            chunk.event === "RunContent" &&
+            typeof chunk.content === "string"
+          ) {
+            // Extract only the new content (not the full accumulated)
+            const newContent = chunk.content;
+            accumulatedContent = newContent;
+
+            // Update typing placeholder with accumulated text
+            setMessages((current) =>
+              current.map((m) =>
+                m.id === typingId
+                  ? {
+                      ...m,
+                      content: accumulatedContent,
+                      typing: accumulatedContent.length === 0,
+                    }
+                  : m
+              )
+            );
+          } else if (chunk.event === "RunCompleted") {
+            // Finalize the message
+            setMessages((current) => {
+              const withoutTyping = current.filter((x) => x.id !== typingId);
+              const finalContent =
+                typeof chunk.content === "string"
+                  ? chunk.content
+                  : accumulatedContent || "(no response)";
+              return [
+                ...withoutTyping,
+                {
+                  role: "assistant",
+                  content: finalContent,
+                  timestamp: Date.now(),
+                },
+              ];
+            });
+            setIsLoading(false);
+          } else if (chunk.event === "RunError") {
+            simulateReply();
+          }
+        });
+
+        await processStream();
+      };
+
+      await processStream();
     } catch {
       // Network or parsing error - fall back to simulated response
       simulateReply();
