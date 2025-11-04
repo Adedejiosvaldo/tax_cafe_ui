@@ -86,7 +86,7 @@ export default function Home() {
   return (
     <div className="relative flex min-h-screen w-full flex-col bg-white text-gray-900 font-display">
       <Header />
-      
+
       <main className="flex-grow">
         {/* Hero Section */}
         <section className="w-full" id="hero">
@@ -105,7 +105,7 @@ export default function Home() {
                       Confused by new Nigerian tax laws? Worried about penalties? TaxCafe is the clear solution to manage your finances, optimize taxes, and ensure you're always compliant.
                     </p>
                   </div>
-                  
+
                   <div className="flex flex-col gap-5 p-6 bg-white rounded-xl border border-border-light shadow-sm">
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0 size-6 text-primary mt-1">
@@ -120,7 +120,7 @@ export default function Home() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0 size-6 text-primary mt-1">
                         <Icon name="savings" />
@@ -134,7 +134,7 @@ export default function Home() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0 size-6 text-primary mt-1">
                         <Icon name="gpp_good" />
@@ -151,7 +151,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-12">
                 <AuthForm />
               </div>
@@ -160,7 +160,7 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section className="py-20 sm:py-32 bg-white" id="features">
+        <section className="py-12 sm:py-16 bg-white" id="features">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               <p className="text-primary font-semibold uppercase tracking-wider">
@@ -173,7 +173,7 @@ export default function Home() {
                 Our powerful features are designed to give you complete control and peace of mind over your finances and tax obligations.
               </p>
             </div>
-            
+
             <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {features.map((feature, index) => (
                 <FeatureCard
@@ -188,7 +188,7 @@ export default function Home() {
         </section>
 
         {/* Pricing Section */}
-        <section className="py-20 sm:py-32" id="pricing">
+        <section className="py-12 sm:py-16" id="pricing">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               <p className="text-primary font-semibold uppercase tracking-wider">
@@ -201,7 +201,7 @@ export default function Home() {
                 Get started for free or unlock powerful features with our premium plans. No hidden fees, ever.
               </p>
             </div>
-            
+
             <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {pricingPlans.map((plan, index) => (
                 <PricingCard
@@ -221,7 +221,7 @@ export default function Home() {
         </section>
 
         {/* Testimonial Section */}
-        <section className="py-20 sm:py-32 bg-white">
+        <section className="py-12 sm:py-16 bg-white">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               <div className="text-primary size-12 mx-auto">
@@ -253,7 +253,7 @@ export default function Home() {
           </div>
         </section>
       </main>
-      
+
       <Footer />
     </div>
   );
