@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Icon from "../components/Icon";
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 
 interface Message {
   role: "user" | "assistant";
@@ -42,6 +44,7 @@ export default function TaxAI() {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
+      id: `u-${Date.now()}`,
       role: "user",
       content: input,
       timestamp: new Date().toLocaleTimeString("en-US", {
@@ -59,20 +62,9 @@ export default function TaxAI() {
       textareaRef.current.style.height = "auto";
     }
 
-    // API endpoint - check environment variable or use default
-    const API_URL =
-      process.env.NEXT_PUBLIC_API_URL ||
-      process.env.NEXT_API_URL ||
-      "/api/chat";
-
-    // Get agent_id from URL query params (like agent-ui does) or environment
-    // If not provided, the API will try to auto-detect or use default
-    const urlParams = new URLSearchParams(window.location.search);
-    const agentId =
-      urlParams.get("agent") ||
-      urlParams.get("agent_id") ||
-      process.env.NEXT_PUBLIC_AGENT_ID ||
-      null;
+    // Get AgentOS URL and agent_id (like agent-ui does - calls AgentOS directly)
+    const agentOSUrl =
+      "https://tax-cafe-be.onrender.com" || "http://localhost:7777"; // Default to localhost like agent-ui
 
     // Add typing placeholder
     const typingId = `t-${Date.now()}`;
@@ -106,29 +98,84 @@ export default function TaxAI() {
       }, 1000);
     };
 
-    // JSON streaming parser (from agent-ui pattern)
-    interface StreamChunk {
-      event?: string;
-      content?: string;
-      [key: string]: unknown;
+    // Get agent_id from URL query params (like agent-ui does)
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentId =
+      urlParams.get("agent") ||
+      urlParams.get("agent_id") ||
+      process.env.NEXT_PUBLIC_AGENT_ID ||
+      null;
+
+    // If no agent_id, try to fetch available agents first
+    let finalAgentId = agentId;
+    if (!finalAgentId) {
+      try {
+        const agentsResponse = await fetch(`${agentOSUrl}/agents`, {
+          method: "GET",
+        });
+        if (agentsResponse.ok) {
+          const agents = await agentsResponse.json();
+          if (Array.isArray(agents) && agents.length > 0) {
+            finalAgentId = agents[0].agent_id || agents[0].id;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch agents:", error);
+      }
     }
 
-    const parseBuffer = (
-      buffer: string,
-      onChunk: (chunk: StreamChunk) => void
-    ): string => {
-      let currentIndex = 0;
-      let jsonStartIndex = buffer.indexOf("{", currentIndex);
+    if (!finalAgentId) {
+      simulateReply();
+      return;
+    }
 
-      while (jsonStartIndex !== -1 && jsonStartIndex < buffer.length) {
+    // Construct the AgentOS API endpoint (like agent-ui does)
+    const runUrl = `${agentOSUrl}/agents/${finalAgentId}/runs`;
+
+    // Attempt to call AgentOS directly (matching agent-ui pattern)
+    try {
+      const formData = new FormData();
+      formData.append("message", userInput);
+      formData.append("stream", "true");
+      // session_id can be added if you implement session management
+      // formData.append("session_id", sessionId ?? "");
+
+      const res = await fetch(runUrl, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok || !res.body) {
+        simulateReply();
+        return;
+      }
+
+      // Read the complete response as text
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalContent = "";
+
+      // Read all chunks until done
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+      }
+
+      // Parse all JSON objects from the complete buffer
+      let tempBuffer = buffer;
+      while (tempBuffer) {
+        const jsonStartIndex = tempBuffer.indexOf("{");
+        if (jsonStartIndex === -1) break;
+
         let braceCount = 0;
         let inString = false;
         let escapeNext = false;
         let jsonEndIndex = -1;
-        let i = jsonStartIndex;
 
-        for (; i < buffer.length; i++) {
-          const char = buffer[i];
+        for (let i = jsonStartIndex; i < tempBuffer.length; i++) {
+          const char = tempBuffer[i];
 
           if (inString) {
             if (escapeNext) {
@@ -154,120 +201,48 @@ export default function TaxAI() {
         }
 
         if (jsonEndIndex !== -1) {
-          const jsonString = buffer.slice(jsonStartIndex, jsonEndIndex + 1);
+          const jsonString = tempBuffer.slice(jsonStartIndex, jsonEndIndex + 1);
           try {
-            const parsed = JSON.parse(jsonString);
-            onChunk(parsed);
+            const chunk = JSON.parse(jsonString);
+            if (
+              chunk.event === "RunContent" &&
+              typeof chunk.content === "string"
+            ) {
+              // Keep the latest content (AgentOS sends accumulated content)
+              finalContent = chunk.content;
+            } else if (chunk.event === "RunCompleted") {
+              // Use the final content from RunCompleted if available
+              if (typeof chunk.content === "string") {
+                finalContent = chunk.content;
+              }
+              break;
+            } else if (chunk.event === "RunError") {
+              simulateReply();
+              return;
+            }
           } catch {
-            jsonStartIndex = buffer.indexOf("{", jsonStartIndex + 1);
-            continue;
+            // Invalid JSON, skip
           }
 
-          currentIndex = jsonEndIndex + 1;
-          buffer = buffer.slice(currentIndex).trim();
-          currentIndex = 0;
-          jsonStartIndex = buffer.indexOf("{", currentIndex);
+          tempBuffer = tempBuffer.slice(jsonEndIndex + 1).trim();
         } else {
           break;
         }
       }
 
-      return buffer;
-    };
-
-    // Attempt to call API with FormData (matching agent-ui pattern)
-    try {
-      const formData = new FormData();
-      formData.append("message", userInput);
-      formData.append("stream", "true");
-      // Only append agent_id if we have it (API will auto-detect if not provided)
-      if (agentId) {
-        formData.append("agent_id", agentId);
-      }
-
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok || !res.body) {
-        simulateReply();
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let accumulatedContent = "";
-
-      const processStream = async (): Promise<void> => {
-        const { done, value } = await reader.read();
-        if (done) {
-          // Process any final data in the buffer
-          parseBuffer(buffer, (chunk) => {
-            if (
-              chunk.event === "RunContent" &&
-              typeof chunk.content === "string"
-            ) {
-              accumulatedContent = chunk.content;
-            }
-          });
-          setIsLoading(false);
-          return;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // Parse complete JSON objects from buffer
-        buffer = parseBuffer(buffer, (chunk) => {
-          // Handle different event types (matching agent-ui pattern)
-          if (
-            chunk.event === "RunContent" &&
-            typeof chunk.content === "string"
-          ) {
-            // Extract only the new content (not the full accumulated)
-            const newContent = chunk.content;
-            accumulatedContent = newContent;
-
-            // Update typing placeholder with accumulated text
-            setMessages((current) =>
-              current.map((m) =>
-                m.id === typingId
-                  ? {
-                      ...m,
-                      content: accumulatedContent,
-                      typing: accumulatedContent.length === 0,
-                    }
-                  : m
-              )
-            );
-          } else if (chunk.event === "RunCompleted") {
-            // Finalize the message
-            setMessages((current) => {
-              const withoutTyping = current.filter((x) => x.id !== typingId);
-              const finalContent =
-                typeof chunk.content === "string"
-                  ? chunk.content
-                  : accumulatedContent || "(no response)";
-              return [
-                ...withoutTyping,
-                {
-                  role: "assistant",
-                  content: finalContent,
-                  timestamp: Date.now(),
-                },
-              ];
-            });
-            setIsLoading(false);
-          } else if (chunk.event === "RunError") {
-            simulateReply();
-          }
-        });
-
-        await processStream();
-      };
-
-      await processStream();
+      // Update the message with complete content
+      setMessages((current) =>
+        current.map((m) =>
+          m.id === typingId
+            ? {
+                ...m,
+                content: finalContent || "(no response)",
+                typing: false,
+              }
+            : m
+        )
+      );
+      setIsLoading(false);
     } catch {
       // Network or parsing error - fall back to simulated response
       simulateReply();
@@ -415,7 +390,7 @@ export default function TaxAI() {
             {/* Messages */}
             {messages.map((message, index) => (
               <div
-                key={index}
+                key={message.id || `msg-${index}`}
                 className={`flex ${
                   message.role === "user"
                     ? "w-full justify-end"
@@ -435,9 +410,67 @@ export default function TaxAI() {
                       <p className="text-sm font-medium text-gray-600">
                         TaxCafe Assistant
                       </p>
-                      <p className="text-base font-normal leading-relaxed flex max-w-lg rounded-lg rounded-tl-none px-4 py-3 bg-gray-100 text-text-light-body">
-                        {message.content}
-                      </p>
+                      <div className="text-base font-normal leading-relaxed max-w-lg rounded-lg rounded-tl-none px-4 py-3 bg-gray-100 text-text-light-body">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkBreaks]}
+                          components={{
+                            p: ({ children }) => (
+                              <p className="mb-3 last:mb-0 whitespace-pre-wrap">
+                                {children}
+                              </p>
+                            ),
+                            ul: ({ children }) => (
+                              <ul className="list-disc list-outside mb-3 ml-4 space-y-2">
+                                {children}
+                              </ul>
+                            ),
+                            ol: ({ children }) => (
+                              <ol className="list-decimal list-outside mb-3 ml-4 space-y-2">
+                                {children}
+                              </ol>
+                            ),
+                            li: ({ children }) => (
+                              <li className="ml-2">{children}</li>
+                            ),
+                            strong: ({ children }) => (
+                              <strong className="font-semibold text-gray-900">
+                                {children}
+                              </strong>
+                            ),
+                            em: ({ children }) => (
+                              <em className="italic">{children}</em>
+                            ),
+                            code: ({ children }) => (
+                              <code className="bg-gray-200 px-1.5 py-0.5 rounded text-sm font-mono">
+                                {children}
+                              </code>
+                            ),
+                            h1: ({ children }) => (
+                              <h1 className="text-2xl font-bold mb-3 mt-4 first:mt-0 text-gray-900">
+                                {children}
+                              </h1>
+                            ),
+                            h2: ({ children }) => (
+                              <h2 className="text-xl font-bold mb-3 mt-4 first:mt-0 text-gray-900">
+                                {children}
+                              </h2>
+                            ),
+                            h3: ({ children }) => (
+                              <h3 className="text-lg font-bold mb-2 mt-3 first:mt-0 text-gray-900">
+                                {children}
+                              </h3>
+                            ),
+                            blockquote: ({ children }) => (
+                              <blockquote className="border-l-4 border-gray-300 pl-4 italic my-3">
+                                {children}
+                              </blockquote>
+                            ),
+                            hr: () => <hr className="my-4 border-gray-300" />,
+                          }}
+                        >
+                          {message.content || ""}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   </>
                 )}
