@@ -1,9 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 
-export default function Header() {
+export default function Header({ className }: { className?: string }) {
   return (
-    <header className="absolute top-0 left-0 right-0 z-10 px-4 sm:px-6 lg:px-8 bg-white/80 backdrop-blur-sm">
+    <header
+      className={`${
+        className || "absolute top-0 left-0 right-0"
+      } z-10 px-4 sm:px-6 lg:px-8 bg-white border-b border-border-light`}
+    >
       <div className="mx-auto max-w-7xl">
         <div className="flex h-20 items-center justify-between">
           <Link

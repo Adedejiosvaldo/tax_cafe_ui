@@ -1,30 +1,37 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next'
+import { DM_Mono, Geist } from 'next/font/google'
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
+import { Toaster } from '@/components/ui/sonner'
+import './globals.css'
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  weight: '400',
+  subsets: ['latin']
+})
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-  variable: "--font-inter",
-});
+const dmMono = DM_Mono({
+  subsets: ['latin'],
+  variable: '--font-dm-mono',
+  weight: '400'
+})
 
 export const metadata: Metadata = {
-  title: "TaxCafe Nigeria - Your Personal Tax Confidence System",
-  description: "Turn Tax Compliance into Financial Confidence. TaxCafe is the clear solution to manage your finances, optimize taxes, and ensure you're always compliant.",
-};
+  title: 'Tax Cafe - AI Tax Bot',
+  description:
+    'AI tax bot powered by the 🇳🇬 Nigeria Tax Administration Act, 2025.'
+}
 
 export default function RootLayout({
-  children,
+  children
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.variable} font-sans antialiased`}
-      >
-        {children}
+      <body className={`${geistSans.variable} ${dmMono.variable} antialiased`}>
+        <NuqsAdapter>{children}</NuqsAdapter>
+        <Toaster />
       </body>
     </html>
-  );
+  )
 }

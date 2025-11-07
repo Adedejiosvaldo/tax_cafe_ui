@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AuthForm() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"login" | "signup">("signup");
+  const [isLoading, setIsLoading] = useState(false);
 
   return (
     <div className="w-full max-w-sm">
@@ -109,7 +112,32 @@ export default function AuthForm() {
               </div>
             </form>
           ) : (
-            <form action="#" method="POST" className="space-y-6">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setIsLoading(true);
+                try {
+                  // Here you would typically call your signup API
+                  // For now, we'll just redirect to onboarding
+                  // In production, you'd want to:
+                  // 1. Create user account
+                  // 2. Set authentication token
+                  // 3. Then redirect to onboarding
+
+                  // Simulate API call
+                  await new Promise((resolve) => setTimeout(resolve, 500));
+
+                  // Redirect to onboarding
+                  router.push("/onboarding");
+                } catch (error) {
+                  console.error("Signup error:", error);
+                  alert("Failed to sign up. Please try again.");
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              className="space-y-6"
+            >
               <div>
                 <label
                   htmlFor="signup-name"
@@ -170,9 +198,10 @@ export default function AuthForm() {
               <div>
                 <button
                   type="submit"
-                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                  disabled={isLoading}
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Start for Free
+                  {isLoading ? "Creating Account..." : "Start for Free"}
                 </button>
               </div>
 
